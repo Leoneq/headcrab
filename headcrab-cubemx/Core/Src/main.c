@@ -31,6 +31,12 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct
+{
+    GPIO_TypeDef* port;
+    uint16_t pin;
+} pinPort;
+
 
 /* USER CODE END PTD */
 
@@ -46,6 +52,10 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+static const pinPort LEDs[] =
+{
+  {LD3_GPIO_Port, LD3_Pin}
+};
 
 /* USER CODE END PV */
 
@@ -99,6 +109,13 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+      for (int i = 0; i < 8; i++)
+      {
+		      HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin << i, GPIO_PIN_SET);
+		      HAL_Delay(100);
+		      HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin << i, GPIO_PIN_RESET);
+	    }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
