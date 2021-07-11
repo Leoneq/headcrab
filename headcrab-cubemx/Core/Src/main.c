@@ -26,6 +26,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdbool.h>
 
 /* USER CODE END Includes */
 
@@ -53,14 +54,42 @@ typedef struct
 /* USER CODE BEGIN PV */
 static const pinPort LEDs[] =
 {
-  {LD3_GPIO_Port, LD3_Pin}
+  {LD3_GPIO_Port, LD3_Pin},
+  {LD5_GPIO_Port, LD5_Pin},
+  {LD7_GPIO_Port, LD7_Pin},
+  {LD9_GPIO_Port, LD9_Pin},
+  {LD10_GPIO_Port, LD10_Pin},
+  {LD8_GPIO_Port, LD8_Pin},
+  {LD6_GPIO_Port, LD6_Pin},
+  {LD4_GPIO_Port, LD4_Pin},
 };
+
+bool dir = false;
+int i = 0;
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+void led_set(int led, bool turn_on)
+{
+	GPIO_PinState state = (turn_on) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+ 
+	if (led >= 0 && led < 8)
+  {
+		HAL_GPIO_WritePin(LEDs[led].port, LEDs[led].pin, state);
+  }
+}
+
+bool is_button_pressed()
+{/*
+  if (HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin) == GPIO_PIN_RESET)
+      return true;
+  else
+      return false;*/
+  return (HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin) == GPIO_PIN_RESET) ? true : false;
+}
 
 /* USER CODE END PFP */
 
@@ -108,12 +137,18 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      for (int i = 0; i < 8; i++)
-      {
-		      HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin << i, GPIO_PIN_SET);
-		      HAL_Delay(100);
-		      HAL_GPIO_WritePin(LD4_GPIO_Port, LD4_Pin << i, GPIO_PIN_RESET);
-	    }
+      dir = is_button_pressed();
+      led_set(i, true);
+      HAL_Delay(100);
+      led_set(i, false);
+
+      if(dir)
+          i++;
+      else
+          i--;
+
+      if(i > 7) i = 0;
+      if(i < 0) i = 7;
 
     /* USER CODE END WHILE */
 
