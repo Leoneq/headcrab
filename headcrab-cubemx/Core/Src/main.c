@@ -37,7 +37,6 @@ typedef struct
     uint16_t pin;
 } pinPort;
 
-
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
