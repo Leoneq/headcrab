@@ -21,13 +21,14 @@
 #include "main.h"
 #include "i2c.h"
 #include "spi.h"
+#include "usart.h"
 #include "usb.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
-
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -73,7 +74,7 @@ int i = 0;
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 void led_set(int led, bool turn_on)
-{
+{ 
 	GPIO_PinState state = (turn_on) ? GPIO_PIN_SET : GPIO_PIN_RESET;
  
 	if (led >= 0 && led < 8)
@@ -88,7 +89,12 @@ bool is_button_pressed()
       return true;
   else
       return false;*/
-  return (HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin) == GPIO_PIN_RESET) ? true : false;
+  return (HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin) == GPIO_PIN_SET) ? true : false;
+}
+
+HAL_StatusTypeDef serialWrite(char* msg)
+{
+    return HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
 }
 
 /* USER CODE END PFP */
@@ -99,7 +105,7 @@ bool is_button_pressed()
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.
+  * @brief  The application entry point.as
   * @retval int
   */
 int main(void)
@@ -129,7 +135,10 @@ int main(void)
   MX_I2C1_Init();
   MX_SPI1_Init();
   MX_USB_PCD_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  const char message[] = "hai\r\n";
+  serialWrite((char*)message);
 
   /* USER CODE END 2 */
 
@@ -149,6 +158,11 @@ int main(void)
 
       if(i > 7) i = 0;
       if(i < 0) i = 7;
+
+      uint8_t value;
+	  HAL_UART_Receive(&huart1, &value, 1, 0);
+ 
+
 
     /* USER CODE END WHILE */
 
@@ -195,7 +209,9 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB|RCC_PERIPHCLK_I2C1;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB|RCC_PERIPHCLK_USART1
+                              |RCC_PERIPHCLK_I2C1;
+  PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
   PeriphClkInit.USBClockSelection = RCC_USBCLKSOURCE_PLL;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
