@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "i2c.h"
+#include "rtc.h"
 #include "spi.h"
 #include "usart.h"
 #include "usb.h"
@@ -29,6 +30,8 @@
 /* USER CODE BEGIN Includes */
 #include <stdbool.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -39,12 +42,19 @@ typedef struct
     uint16_t pin;
 } pinPort;
 
+typedef struct
+{
+    RTC_TimeTypeDef time;
+    RTC_DateTypeDef date;
+} dateTime;
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define DEBUG
+#define DEBUG 1
 
 /* USER CODE END PD */
 
@@ -77,6 +87,7 @@ int i = 0;
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
 
+//turn on/off builtin leds
 void led_set(int led, bool turn_on)
 { 
 	GPIO_PinState state = (turn_on) ? GPIO_PIN_SET : GPIO_PIN_RESET;
@@ -93,16 +104,37 @@ bool is_button_pressed()
   return (HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin) == GPIO_PIN_SET) ? true : false;
 }
 
-// arduino style
-HAL_StatusTypeDef serialWrite(char* msg)
+// get time
+dateTime get_date_time()
 {
-    return HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+    dateTime t;
+    HAL_RTC_GetTime(&hrtc, &t.time, RTC_FORMAT_BIN);
+    HAL_RTC_GetDate(&hrtc, &t.date, RTC_FORMAT_BIN);
+    return t;
 }
 
 //send debug message with additional info
-void debug_serialWrite(char* msg)
+void debug_serialWrite(char* message)
 {
-  char msg[] = ""
+  //please help me i hate strings this is the only case where java is better than c plus plus
+  char msg[255] = "";
+  char hours[] = "";
+  char minutes[] = "";
+  char seconds[] = "";
+
+  itoa(get_date_time().time.Hours, hours, 10);
+  itoa(get_date_time().time.Minutes, minutes, 10);
+  itoa(get_date_time().time.Seconds, seconds, 10);
+
+  strcat(msg, hours);
+  strcat(msg, ":");
+  strcat(msg, minutes);
+  strcat(msg, ":");
+  strcat(msg, seconds);
+  strcat(msg, "\t>> ");
+  strcat(msg, message);
+  strcat(msg, "\r\n");
+  HAL_UART_Transmit(&huart1, (uint8_t*)&msg, strlen(msg), HAL_MAX_DELAY);
 }
 
 //send a command to dfplayer
@@ -110,26 +142,36 @@ void wav_sendcommand(int cmd, int arg)
 {
   // the command consists of severals bytes. respectively:
   //start byte, version, length, command, feedback, parameter, checksum, end byte
-  int8_t command[10] = {0x7E, 0xFF, 6, cmd, 0, arg >> 8, arg, 0, 0, 0xEF};
+  uint8_t command[10] = {0x7E, 0xFF, 6, cmd, 0, arg >> 8, arg, 0, 0, 0xEF};
 
   //calculate checksum
   int checksum = 0;
   for(int x = 1; x <= 6; x++)
       checksum -= command[x];
-  command[8] = checksum >> 8;
-  command[9] = checksum;
+  command[7] = checksum >> 8;
+  command[8] = checksum;
 
   //send debug information
-  #ifdef DEBUG
-      char msg[] = "DFPlayer: ";
-  #endif
+  if(DEBUG == 1)
+  {
+      char msg[] = "DFPlayer send: ";
+      for(int x = 0; x < 10; x++)
+      {
+          char buffer[3] = "";
+          itoa(command[x], buffer, 16);
+          strcat(buffer, " ");
+          //strcat(msg, buffer);
+      }
+      debug_serialWrite(msg);
+  }
 
+  HAL_UART_Transmit(&huart2, &command, 10, HAL_MAX_DELAY);
 }
 
 // play a song
 void wav_play(int nr)
 {
-
+    wav_sendcommand(3, nr);
 }
 
 /* USER CODE END PFP */
@@ -172,9 +214,10 @@ int main(void)
   MX_USB_PCD_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   const char message[] = "hai\r\n";
-  serialWrite((char*)message);
+  debug_serialWrite((char*)message);
 
   /* USER CODE END 2 */
 
@@ -195,9 +238,11 @@ int main(void)
       if(i > 7) i = 0;
       if(i < 0) i = 7;
 
-      uint8_t value;
-	  HAL_UART_Receive(&huart1, &value, 1, 0);
- 
+      if(dir)
+      {
+        debug_serialWrite("siema");
+        wav_play(29);
+      }
 
 
     /* USER CODE END WHILE */
@@ -220,11 +265,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_LSI
+                              |RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
   RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
@@ -246,10 +293,12 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB|RCC_PERIPHCLK_USART1
-                              |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_I2C1;
+                              |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_I2C1
+                              |RCC_PERIPHCLK_RTC;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
   PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
+  PeriphClkInit.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
   PeriphClkInit.USBClockSelection = RCC_USBCLKSOURCE_PLL;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
