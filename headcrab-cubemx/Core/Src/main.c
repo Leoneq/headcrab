@@ -43,6 +43,9 @@ typedef struct
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define DEBUG
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -73,6 +76,7 @@ int i = 0;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 /* USER CODE BEGIN PFP */
+
 void led_set(int led, bool turn_on)
 { 
 	GPIO_PinState state = (turn_on) ? GPIO_PIN_SET : GPIO_PIN_RESET;
@@ -83,18 +87,49 @@ void led_set(int led, bool turn_on)
   }
 }
 
+// on stm32f303 board theres only one user button, and we probably wont need more.
 bool is_button_pressed()
-{/*
-  if (HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin) == GPIO_PIN_RESET)
-      return true;
-  else
-      return false;*/
+{
   return (HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin) == GPIO_PIN_SET) ? true : false;
 }
 
+// arduino style
 HAL_StatusTypeDef serialWrite(char* msg)
 {
     return HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+}
+
+//send debug message with additional info
+void debug_serialWrite(char* msg)
+{
+  char msg[] = ""
+}
+
+//send a command to dfplayer
+void wav_sendcommand(int cmd, int arg)
+{
+  // the command consists of severals bytes. respectively:
+  //start byte, version, length, command, feedback, parameter, checksum, end byte
+  int8_t command[10] = {0x7E, 0xFF, 6, cmd, 0, arg >> 8, arg, 0, 0, 0xEF};
+
+  //calculate checksum
+  int checksum = 0;
+  for(int x = 1; x <= 6; x++)
+      checksum -= command[x];
+  command[8] = checksum >> 8;
+  command[9] = checksum;
+
+  //send debug information
+  #ifdef DEBUG
+      char msg[] = "DFPlayer: ";
+  #endif
+
+}
+
+// play a song
+void wav_play(int nr)
+{
+
 }
 
 /* USER CODE END PFP */
@@ -105,7 +140,7 @@ HAL_StatusTypeDef serialWrite(char* msg)
 /* USER CODE END 0 */
 
 /**
-  * @brief  The application entry point.as
+  * @brief  The application entry point.
   * @retval int
   */
 int main(void)
@@ -136,6 +171,7 @@ int main(void)
   MX_SPI1_Init();
   MX_USB_PCD_Init();
   MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   const char message[] = "hai\r\n";
   serialWrite((char*)message);
@@ -210,8 +246,9 @@ void SystemClock_Config(void)
     Error_Handler();
   }
   PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USB|RCC_PERIPHCLK_USART1
-                              |RCC_PERIPHCLK_I2C1;
+                              |RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_I2C1;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
+  PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
   PeriphClkInit.USBClockSelection = RCC_USBCLKSOURCE_PLL;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
