@@ -54,7 +54,7 @@ typedef struct
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 
-#define DEBUG 1
+#define DEBUG
 
 /* USER CODE END PD */
 
@@ -78,8 +78,10 @@ static const pinPort LEDs[] =
   {LD4_GPIO_Port, LD4_Pin},
 };
 
-bool dir = false;
-int i = 0;
+char huart1_buffer[128];
+int huart1_pointer = 0;
+char huart2_buffer[10];
+int huart2_pointer = 0;
 
 /* USER CODE END PV */
 
@@ -117,7 +119,7 @@ dateTime get_date_time()
 void debug_serialWrite(char* message)
 {
   //please help me i hate strings this is the only case where java is better than c plus plus
-  char msg[255] = "";
+  char msg[64] = "";
   char hours[] = "";
   char minutes[] = "";
   char seconds[] = "";
@@ -152,20 +154,60 @@ void wav_sendcommand(int cmd, int arg)
   command[8] = checksum;
 
   //send debug information
-  if(DEBUG == 1)
-  {
-      char msg[] = "DFPlayer send: ";
+  #ifdef DEBUG
+      char msg[64] = "DFPlayer send: ";
       for(int x = 0; x < 10; x++)
       {
           char buffer[3] = "";
           itoa(command[x], buffer, 16);
           strcat(buffer, " ");
-          //strcat(msg, buffer);
+          strcat(msg, buffer);
       }
       debug_serialWrite(msg);
-  }
+  #endif
 
-  HAL_UART_Transmit(&huart2, &command, 10, HAL_MAX_DELAY);
+  HAL_UART_Transmit(&huart2, (uint8_t*)&command, 10, HAL_MAX_DELAY);
+}
+
+void executeSerialCommand(UART_HandleTypeDef serial, char* buffer)
+{
+    if(&serial == &huart1)
+    {
+        debug_serialWrite(buffer);
+    }
+    else if (&serial == &huart2)
+    {
+        debug_serialWrite("smea");
+    }
+}
+
+// read a character from serial and add to the buffer
+void handleSerial(UART_HandleTypeDef serial, char* buffer, int pointer)
+{
+    uint8_t rec;
+    if(HAL_UART_Receive(&serial, &rec, 1, 0) == HAL_OK)
+    {
+        led_set(0, 1);
+        char b[] = "hi";
+        b[1] = rec;
+        debug_serialWrite(b);
+    }
+    else
+        led_set(0, 0);
+      
+    if(rec == '\n')
+    {
+      buffer[pointer] = '\0';
+      executeSerialCommand(serial, buffer);
+      for(int x = 0; x < sizeof(buffer); x++)
+          buffer[x] = 0;
+      pointer = 0;
+    }
+    else
+    {
+        buffer[pointer] = rec;
+        pointer++;
+    }
 }
 
 // play a song
@@ -216,7 +258,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
-  const char message[] = "hai\r\n";
+  const char message[] = "hai";
   debug_serialWrite((char*)message);
 
   /* USER CODE END 2 */
@@ -225,24 +267,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      dir = is_button_pressed();
-      led_set(i, true);
-      HAL_Delay(100);
-      led_set(i, false);
-
-      if(dir)
-          i++;
-      else
-          i--;
-
-      if(i > 7) i = 0;
-      if(i < 0) i = 7;
-
-      if(dir)
-      {
-        debug_serialWrite("siema");
-        wav_play(29);
-      }
+      handleSerial(huart1, huart1_buffer, huart1_pointer);
+      
 
 
     /* USER CODE END WHILE */
