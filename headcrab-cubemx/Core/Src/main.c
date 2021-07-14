@@ -49,13 +49,15 @@ typedef struct
 } dateTime;
 
 
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
 #define DEBUG
-
+#define CRLF 1
+#define NOCRLF 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -78,10 +80,13 @@ static const pinPort LEDs[] =
   {LD4_GPIO_Port, LD4_Pin},
 };
 
-char huart1_buffer[128];
-int huart1_pointer = 0;
 char huart2_buffer[10];
 int huart2_pointer = 0;
+
+char huart1_buffer[128];
+int huart1_pointer = 0;
+
+bool debug_echo = true;
 
 /* USER CODE END PV */
 
@@ -95,9 +100,13 @@ void led_set(int led, bool turn_on)
 	GPIO_PinState state = (turn_on) ? GPIO_PIN_SET : GPIO_PIN_RESET;
  
 	if (led >= 0 && led < 8)
-  {
 		HAL_GPIO_WritePin(LEDs[led].port, LEDs[led].pin, state);
-  }
+}
+
+void led_toggle(int led)
+{
+    if (led >= 0 && led < 8)
+		    HAL_GPIO_TogglePin(LEDs[led].port, LEDs[led].pin);
 }
 
 // on stm32f303 board theres only one user button, and we probably wont need more.
@@ -116,7 +125,7 @@ dateTime get_date_time()
 }
 
 //send debug message with additional info
-void debug_serialWrite(char* message)
+void debug_serialWrite(char* message, bool nl)
 {
   //please help me i hate strings this is the only case where java is better than c plus plus
   char msg[64] = "";
@@ -128,14 +137,17 @@ void debug_serialWrite(char* message)
   itoa(get_date_time().time.Minutes, minutes, 10);
   itoa(get_date_time().time.Seconds, seconds, 10);
 
-  strcat(msg, hours);
-  strcat(msg, ":");
-  strcat(msg, minutes);
-  strcat(msg, ":");
-  strcat(msg, seconds);
-  strcat(msg, "\t>> ");
+  if(nl) 
+  {
+      strcat(msg, hours);
+      strcat(msg, ":");
+      strcat(msg, minutes);
+      strcat(msg, ":");
+      strcat(msg, seconds);
+      strcat(msg, "\t>> ");
+  }
   strcat(msg, message);
-  strcat(msg, "\r\n");
+  if(nl) strcat(msg, "\r\n");
   HAL_UART_Transmit(&huart1, (uint8_t*)&msg, strlen(msg), HAL_MAX_DELAY);
 }
 
@@ -163,51 +175,10 @@ void wav_sendcommand(int cmd, int arg)
           strcat(buffer, " ");
           strcat(msg, buffer);
       }
-      debug_serialWrite(msg);
+      debug_serialWrite(msg, CRLF);
   #endif
 
   HAL_UART_Transmit(&huart2, (uint8_t*)&command, 10, HAL_MAX_DELAY);
-}
-
-void executeSerialCommand(UART_HandleTypeDef serial, char* buffer)
-{
-    if(&serial == &huart1)
-    {
-        debug_serialWrite(buffer);
-    }
-    else if (&serial == &huart2)
-    {
-        debug_serialWrite("smea");
-    }
-}
-
-// read a character from serial and add to the buffer
-void handleSerial(UART_HandleTypeDef serial, char* buffer, int pointer)
-{
-    uint8_t rec;
-    if(HAL_UART_Receive(&serial, &rec, 1, 0) == HAL_OK)
-    {
-        led_set(0, 1);
-        char b[] = "hi";
-        b[1] = rec;
-        debug_serialWrite(b);
-    }
-    else
-        led_set(0, 0);
-      
-    if(rec == '\n')
-    {
-      buffer[pointer] = '\0';
-      executeSerialCommand(serial, buffer);
-      for(int x = 0; x < sizeof(buffer); x++)
-          buffer[x] = 0;
-      pointer = 0;
-    }
-    else
-    {
-        buffer[pointer] = rec;
-        pointer++;
-    }
 }
 
 // play a song
@@ -215,6 +186,109 @@ void wav_play(int nr)
 {
     wav_sendcommand(3, nr);
 }
+
+void wav_setvolume(int vol)
+{
+    wav_sendcommand(6, vol);
+}
+
+// split received data and execute a command
+void debug_executeSerial()
+{
+    if(debug_echo)
+    {
+        debug_serialWrite("echo: ", NOCRLF);
+        debug_serialWrite(huart1_buffer, CRLF);
+    }
+
+    char *ptr = strtok(huart1_buffer, "_");
+    if(strcmp(ptr, "dfplayer") == 0)
+    {
+        ptr = strtok(NULL, "_");
+        if(strcmp(ptr, "play") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            wav_play(atoi(ptr));
+        }
+        else if(strcmp(ptr, "setvolume") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            wav_setvolume(atoi(ptr));
+        }
+        else
+            goto error;
+    }
+    else if(strcmp(ptr, "headcrab") == 0)
+    {
+        ptr = strtok(NULL, "_");
+        if(strcmp(ptr, "echo") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            debug_echo = atoi(ptr);
+        }
+        else if(strcmp(ptr, "ping!") == 0)
+        {
+            debug_serialWrite("pong!", CRLF);
+        }
+        else
+            goto error;
+    }
+    else if(strcmp(ptr, "led") == 0)
+    {
+        ptr = strtok(NULL, "_");
+        if(strcmp(ptr, "toggle") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            led_toggle(atoi(ptr));
+        }
+        else if(strcmp(ptr, "set") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            led_set(atoi(ptr), 1);
+        }
+        else if(strcmp(ptr, "reset") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            led_set(atoi(ptr), 0);
+        }
+        else
+          goto error;
+    }
+    else
+    {
+        error:
+        debug_serialWrite("error: invalid command", CRLF);
+    }
+    
+}
+
+// read a character from serial and add to the buffer
+void debug_handleSerial()
+{
+    uint8_t rec;
+    if(HAL_UART_Receive(&huart1, &rec, 1, 0) == HAL_OK)
+        led_set(0, 1);
+    else
+    {
+        led_set(0, 0);
+        return;
+    }
+
+    if(rec == '\n')
+    {
+      huart1_buffer[huart1_pointer] = '\0';
+      debug_executeSerial();
+      for(int x = 0; x < sizeof(huart1_buffer); x++)
+          huart1_buffer[x] = 0;
+      huart1_pointer = 0;
+    }
+    else
+    {
+        huart1_buffer[huart1_pointer] = rec;
+        huart1_pointer++;
+    }
+}
+
 
 /* USER CODE END PFP */
 
@@ -259,15 +333,15 @@ int main(void)
   MX_RTC_Init();
   /* USER CODE BEGIN 2 */
   const char message[] = "hai";
-  debug_serialWrite((char*)message);
-
+  debug_serialWrite((char*)message, CRLF);
+  
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      handleSerial(huart1, huart1_buffer, huart1_pointer);
+      debug_handleSerial();
       
 
 
