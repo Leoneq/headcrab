@@ -49,6 +49,15 @@ typedef struct
     RTC_DateTypeDef date;
 } dateTime;
 
+typedef enum
+{
+    NORMAL  = 0,
+    POP     = 1,
+    ROCK    = 2,
+    JAZZ    = 3,
+    CLASSIC = 4,
+    BASS    = 5 
+} DFPlayer_EQ;
 
 
 
@@ -179,7 +188,7 @@ void wav_sendcommand(int cmd, int arg)
       debug_serialWrite(msg, CRLF);
   #endif
 
-  HAL_UART_Transmit_IT(&huart2, (uint8_t*)&command, 10);
+  HAL_UART_Transmit(&huart2, (uint8_t*)&command, 10, HAL_MAX_DELAY);
 }
 
 // play a song
@@ -191,6 +200,37 @@ void wav_play(int nr)
 void wav_setvolume(int vol)
 {
     wav_sendcommand(6, vol);
+}
+
+void wav_reset()
+{
+    wav_sendcommand(0x0C, 0);
+}
+
+
+void wav_seteq(int eq)
+{
+    wav_sendcommand(0x07, eq);
+}
+
+void wav_pause()
+{
+    wav_sendcommand(0x0E, 0);
+}
+
+void wav_continue()
+{
+    wav_sendcommand(0x0D, 0);
+}
+
+void wav_sleep()
+{
+    wav_sendcommand(0x0A, 0);
+}
+
+void wav_stop()
+{
+    wav_sendcommand(0x16, 0);
 }
 
 // split received data and execute a command
@@ -209,7 +249,7 @@ void debug_executeSerial()
         if(strcmp(ptr, "play") == 0)
         {
             ptr = strtok(NULL, "_");
-            wav_play(atoi(ptr));
+            wav_play(atoi(ptr) + 1);
         }
         else if(strcmp(ptr, "setvolume") == 0)
         {
@@ -222,14 +262,14 @@ void debug_executeSerial()
     else if(strcmp(ptr, "headcrab") == 0)
     {
         ptr = strtok(NULL, "_");
-        if(strcmp(ptr, "echo") == 0)
+        if(strcmp(ptr, "ping!") == 0)
+        {
+            debug_serialWrite("pong!", CRLF);
+        }
+        else if(strcmp(ptr, "echo") == 0)
         {
             ptr = strtok(NULL, "_");
             debug_echo = atoi(ptr);
-        }
-        else if(strcmp(ptr, "ping!") == 0)
-        {
-            debug_serialWrite("pong!", CRLF);
         }
         else
             goto error;
@@ -345,11 +385,9 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-
-      HAL_IWDG_Refresh(&hiwdg);
       led_toggle(6);
       HAL_Delay(100);
-
+      HAL_IWDG_Refresh(&hiwdg);
 
     /* USER CODE END WHILE */
 
