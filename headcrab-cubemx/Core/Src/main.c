@@ -20,6 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "i2c.h"
+#include "iwdg.h"
 #include "rtc.h"
 #include "spi.h"
 #include "usart.h"
@@ -125,7 +126,7 @@ dateTime get_date_time()
 }
 
 //send debug message with additional info
-void debug_serialWrite(char* message, bool nl)
+HAL_StatusTypeDef debug_serialWrite(char* message, bool nl)
 {
   //please help me i hate strings this is the only case where java is better than c plus plus
   char msg[64] = "";
@@ -148,7 +149,7 @@ void debug_serialWrite(char* message, bool nl)
   }
   strcat(msg, message);
   if(nl) strcat(msg, "\r\n");
-  HAL_UART_Transmit(&huart1, (uint8_t*)&msg, strlen(msg), HAL_MAX_DELAY);
+  return HAL_UART_Transmit(&huart1, (uint8_t*)&msg, strlen(msg), HAL_MAX_DELAY);
 }
 
 //send a command to dfplayer
@@ -178,7 +179,7 @@ void wav_sendcommand(int cmd, int arg)
       debug_serialWrite(msg, CRLF);
   #endif
 
-  HAL_UART_Transmit(&huart2, (uint8_t*)&command, 10, HAL_MAX_DELAY);
+  HAL_UART_Transmit_IT(&huart2, (uint8_t*)&command, 10);
 }
 
 // play a song
@@ -198,7 +199,7 @@ void debug_executeSerial()
     if(debug_echo)
     {
         debug_serialWrite("echo: ", NOCRLF);
-        debug_serialWrite(huart1_buffer, CRLF);
+        debug_serialWrite(huart1_buffer, NOCRLF);
     }
 
     char *ptr = strtok(huart1_buffer, "_");
@@ -265,18 +266,8 @@ void debug_executeSerial()
 // read a character from serial and add to the buffer
 void debug_handleSerial()
 {
-    uint8_t rec;
-    if(HAL_UART_Receive(&huart1, &rec, 1, 0) == HAL_OK)
-        led_set(0, 1);
-    else
+    if(huart1_buffer[huart1_pointer] == '\n')
     {
-        led_set(0, 0);
-        return;
-    }
-
-    if(rec == '\n')
-    {
-      huart1_buffer[huart1_pointer] = '\0';
       debug_executeSerial();
       for(int x = 0; x < sizeof(huart1_buffer); x++)
           huart1_buffer[x] = 0;
@@ -284,9 +275,17 @@ void debug_handleSerial()
     }
     else
     {
-        huart1_buffer[huart1_pointer] = rec;
         huart1_pointer++;
     }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if(huart == &huart1)
+    {
+        debug_handleSerial();
+        HAL_UART_Receive_IT(&huart1, (uint8_t *)&huart1_buffer[huart1_pointer], 1);
+    }    
 }
 
 
@@ -331,9 +330,14 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   MX_RTC_Init();
+  MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
   const char message[] = "hai";
   debug_serialWrite((char*)message, CRLF);
+  led_set(0, 1);
+  HAL_Delay(100);
+  led_set(0, 0);
+  HAL_UART_Receive_IT(&huart1, (uint8_t *)&huart1_buffer[huart1_pointer], 1);
   
   /* USER CODE END 2 */
 
@@ -341,8 +345,10 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-      debug_handleSerial();
-      
+
+      HAL_IWDG_Refresh(&hiwdg);
+      led_toggle(6);
+      HAL_Delay(100);
 
 
     /* USER CODE END WHILE */
