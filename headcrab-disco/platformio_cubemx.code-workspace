@@ -20,7 +20,8 @@
 			"string": "c",
 			"vector": "c",
 			"string_view": "c",
-			"sstream": "c"
+			"sstream": "c",
+			"main.h": "c"
 		}
 	}
 }

@@ -18,6 +18,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <usart.h>
 
 // equalizer settings
 typedef enum
@@ -33,18 +34,10 @@ typedef enum
 // initialization state
 typedef enum
 {
+    DF_IERROR   = 0,
     DF_USB_DISK = 1,
     DF_SD       = 2,
     DF_USB_PC   = 4,
-    DF_USB_SD   = 3
-} DFPlayer_INIT;
-
-typedef enum
-{
-    DF_USB_DISK = 1,
-    DF_SD       = 2,
-    DF_USB_PC   = 4,
-    DF_USB_SD   = 3
 } DFPlayer_INIT;
 
 typedef enum
@@ -62,24 +55,44 @@ typedef enum
 
 typedef enum
 {
+    DF_ONLINE   = 0x3F,
+    DF_USB_DONE = 0x3C,
+    DF_SD_DONE  = 0x3D,
+    DF_ACK      = 0x41,
+    DF_ERROR    = 0x40,
+    DF_PLUGIN   = 0x3A,
+    DF_PLUGOUT  = 0x3B,
+    DF_STATUS   = 0x42,
+} DFPlayer_COMMAND;
+
+typedef enum
+{
     DF_UDISK    = 1,
-    DF_SD_CARD  = 2,
-    DF_USBPC    = 4
+    DF_SDCARD   = 2,
+    DF_USBPC    = 4,
+    DF_USB_SD   = 3
 } DFPlayer_DEVICE_PLUG;
+
 // send/receive uart buffer
-char dfplayer_buffer[11];
-int dfplayer_pointer = 0;
+char DFPlayer_buffer[10];
+int DFPlayer_pointer;
 
 // send additional information
-bool dfplayer_debug = true;
+bool DFPlayer_debug;
 //disable if you want to only send data
-uint8_t DFPlayer_ACK = 0;
+uint8_t DFPlayer_ACK;
 
-class DFPlayerMini
-{
-    unsigned long _timeOutTimer;
-    unsigned long _timeOutDuration = 500;
-    
-}
+unsigned long DFPlayer_timeOutTimer;
+unsigned long DFPlayer_timeOutDuration;
+
+void DFPlayer_enableACK();
+void DFPlayer_disableACK();
+DFPlayer_INIT DFPlayer_Init(UART_HandleTypeDef *huart);
+void DFPlayer_reset();
+void DFPlayer_handleSerial();
+void DFPlayer_play(int nr);
+void DFPlayer_sleep();
+void DFPlayer_setEqualizer(int eq);
+void DFPlayer_setVolume(int vol);
 
 #endif

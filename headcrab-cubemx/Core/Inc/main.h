@@ -32,11 +32,14 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <stdbool.h>
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
+
+HAL_StatusTypeDef debug_serialWrite(char* message, bool nl);
+void led_set(int led, bool turn_on);
 
 /* USER CODE END ET */
 

@@ -147,78 +147,7 @@ HAL_StatusTypeDef debug_serialWrite(char* message, bool nl)
   return HAL_UART_Transmit(&huart1, (uint8_t*)&msg, strlen(msg), HAL_MAX_DELAY);
 }
 
-//send a command to dfplayer
-void wav_sendcommand(int cmd, int arg)
-{
-  // the command consists of severals bytes. respectively:
-  //start byte, version, length, command, feedback, parameter, checksum, end byte
-  uint8_t command[10] = {0x7E, 0xFF, 6, cmd, 0, arg >> 8, arg, 0, 0, 0xEF};
 
-  //calculate checksum
-  int checksum = 0;
-  for(int x = 1; x <= 6; x++)
-      checksum -= command[x];
-  command[7] = checksum >> 8;
-  command[8] = checksum;
-
-  //send debug information
-  if(dfplayer_debug)
-  {
-      char msg[64] = "DFPlayer send: ";
-      for(int x = 0; x < 10; x++)
-      {
-          char buffer[3] = "";
-          itoa(command[x], buffer, 16);
-          strcat(buffer, " ");
-          strcat(msg, buffer);
-      }
-      debug_serialWrite(msg, CRLF);
-  }
-
-  HAL_UART_Transmit(&huart2, (uint8_t*)&command, 10, HAL_MAX_DELAY);
-}
-
-// play a song
-void wav_play(int nr)
-{
-    wav_sendcommand(3, nr);
-}
-
-void wav_setvolume(int vol)
-{
-    wav_sendcommand(6, vol);
-}
-
-void wav_reset()
-{
-    wav_sendcommand(0x0C, 0);
-}
-
-
-void wav_seteq(int eq)
-{
-    wav_sendcommand(0x07, eq);
-}
-
-void wav_pause()
-{
-    wav_sendcommand(0x0E, 0);
-}
-
-void wav_continue()
-{
-    wav_sendcommand(0x0D, 0);
-}
-
-void wav_sleep()
-{
-    wav_sendcommand(0x0A, 0);
-}
-
-void wav_stop()
-{
-    wav_sendcommand(0x16, 0);
-}
 
 // split received data and execute a command
 void debug_executeSerial()
@@ -230,18 +159,37 @@ void debug_executeSerial()
     }
 
     char *ptr = strtok(huart1_buffer, "_");
-    if(strcmp(ptr, "dfplayer") == 0)
+    if(strcmp(ptr, "dfp") == 0)
     {
         ptr = strtok(NULL, "_");
         if(strcmp(ptr, "play") == 0)
         {
             ptr = strtok(NULL, "_");
-            wav_play(atoi(ptr) + 1);
+            DFPlayer_play(atoi(ptr));
         }
         else if(strcmp(ptr, "setvolume") == 0)
         {
             ptr = strtok(NULL, "_");
-            wav_setvolume(atoi(ptr));
+            DFPlayer_setVolume(atoi(ptr));
+        }
+        else if(strcmp(ptr, "setack") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            if(atoi(ptr)) DFPlayer_enableACK();
+            else DFPlayer_disableACK();
+        }
+        else if(strcmp(ptr, "seteq") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            DFPlayer_setEqualizer(atoi(ptr));
+        }
+        else if(strcmp(ptr, "reset") == 0)
+        {
+            DFPlayer_reset();
+        }
+        else if(strcmp(ptr, "sleep") == 0)
+        {
+            DFPlayer_sleep();
         }
         else
             goto error;
@@ -312,7 +260,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     {
         debug_handleSerial();
         HAL_UART_Receive_IT(&huart1, (uint8_t *)&huart1_buffer[huart1_pointer], 1);
-    }    
+    } 
+    else if(huart == &huart2)
+    {
+        DFPlayer_handleSerial();
+        HAL_UART_Receive_IT(&huart2, (uint8_t *)&DFPlayer_buffer[DFPlayer_pointer], 1);
+    }
 }
 
 
@@ -339,7 +292,7 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -359,12 +312,16 @@ int main(void)
   MX_RTC_Init();
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
-  const char message[] = "hai";
-  debug_serialWrite((char*)message, CRLF);
-  led_set(0, 1);
-  HAL_Delay(100);
-  led_set(0, 0);
+  debug_serialWrite("headcrab says hi :3", CRLF);
   HAL_UART_Receive_IT(&huart1, (uint8_t *)&huart1_buffer[huart1_pointer], 1);
+
+  if(DFPlayer_Init(&huart2) == DF_IERROR)
+      debug_serialWrite("DFPlayer: initialize error.", CRLF);
+  else
+      debug_serialWrite("DFPlayer: initialized successfully", CRLF);
+
+  DFPlayer_disableACK();
+  DFPlayer_play(19);
   
   /* USER CODE END 2 */
 
@@ -375,7 +332,6 @@ int main(void)
       led_toggle(6);
       HAL_Delay(100);
       HAL_IWDG_Refresh(&hiwdg);
-
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
