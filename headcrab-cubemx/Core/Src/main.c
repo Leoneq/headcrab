@@ -33,6 +33,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "dfplayermini.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,18 +49,6 @@ typedef struct
     RTC_TimeTypeDef time;
     RTC_DateTypeDef date;
 } dateTime;
-
-typedef enum
-{
-    NORMAL  = 0,
-    POP     = 1,
-    ROCK    = 2,
-    JAZZ    = 3,
-    CLASSIC = 4,
-    BASS    = 5 
-} DFPlayer_EQ;
-
-
 
 /* USER CODE END PTD */
 
@@ -90,13 +79,10 @@ static const pinPort LEDs[] =
   {LD4_GPIO_Port, LD4_Pin},
 };
 
-char huart2_buffer[10];
-int huart2_pointer = 0;
-
 char huart1_buffer[128];
 int huart1_pointer = 0;
 
-bool debug_echo = true;
+bool debug_echo = false;
 
 /* USER CODE END PV */
 
@@ -176,7 +162,8 @@ void wav_sendcommand(int cmd, int arg)
   command[8] = checksum;
 
   //send debug information
-  #ifdef DEBUG
+  if(dfplayer_debug)
+  {
       char msg[64] = "DFPlayer send: ";
       for(int x = 0; x < 10; x++)
       {
@@ -186,7 +173,7 @@ void wav_sendcommand(int cmd, int arg)
           strcat(msg, buffer);
       }
       debug_serialWrite(msg, CRLF);
-  #endif
+  }
 
   HAL_UART_Transmit(&huart2, (uint8_t*)&command, 10, HAL_MAX_DELAY);
 }
