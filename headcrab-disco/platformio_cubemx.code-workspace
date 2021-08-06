@@ -21,7 +21,9 @@
 			"vector": "c",
 			"string_view": "c",
 			"sstream": "c",
-			"main.h": "c"
+			"main.h": "c",
+			"unordered_map": "cpp",
+			"initializer_list": "cpp"
 		}
 	}
 }
