@@ -23,7 +23,8 @@
 			"sstream": "c",
 			"main.h": "c",
 			"unordered_map": "cpp",
-			"initializer_list": "cpp"
+			"initializer_list": "cpp",
+			"stdlib.h": "c"
 		}
 	}
 }
