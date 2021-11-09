@@ -60,6 +60,7 @@ typedef struct
 #define DEBUG
 #define CRLF 1
 #define NOCRLF 0
+#define RAD_TO_DEG 180/M_PI
 
 /* USER CODE END PD */
 
@@ -87,6 +88,15 @@ char huart1_buffer[128];
 int huart1_pointer = 0;
 
 bool debug_echo = false;
+
+// legs
+typedef enum
+{
+    LEG_A  = 0, //bottom left
+    LEG_B  = 1, //bottom right
+    LEG_C  = 2, //top right
+    LEG_D  = 3  //top left
+} LEGS;
 
 /* USER CODE END PV */
 
@@ -116,6 +126,7 @@ bool is_button_pressed()
   return (HAL_GPIO_ReadPin(BTN_GPIO_Port, BTN_Pin) == GPIO_PIN_SET) ? true : false;
 }
 
+
 // get time
 dateTime get_date_time()
 {
@@ -128,7 +139,7 @@ dateTime get_date_time()
 //send debug message with additional info
 HAL_StatusTypeDef debug_serialWrite(char* message, bool nl)
 {
-  //please help me i hate strings this is the only case where java is better than c plus plus
+  //please help me i hate strings this is the only case where java is better than c
   char msg[64] = "";
   char hours[] = "";
   char minutes[] = "";
@@ -150,6 +161,55 @@ HAL_StatusTypeDef debug_serialWrite(char* message, bool nl)
   strcat(msg, message);
   if(nl) strcat(msg, "\r\n");
   return HAL_UART_Transmit(&huart1, (uint8_t*)&msg, strlen(msg), HAL_MAX_DELAY);
+}
+
+void moveLeg(LEGS leg, float x, float y, float z)
+{
+    // units in angles and mm.
+    float thigh = 70;
+    float hip_angle_offset = -67;
+    switch(leg)
+    {
+      case LEG_A:
+        
+        break;
+      case LEG_B:
+        thigh = 70;
+        break;
+      case LEG_C:
+        thigh = 60;
+        break;
+      case LEG_D:
+        thigh = 60;
+        break;
+      default:
+        debug_serialWrite("error: wrong leggie lol", CRLF);
+        return;
+    }
+
+    const float tibia = 80; // TODO: replace with define or sth
+    const float hip_offset = 35;
+    const float hip_servo_offset = 49; //the center is at 0,0,0 (middle of the robot)
+    const float tibia_offset = 40; //in degrees
+    
+    x -= hip_servo_offset;
+    y -= hip_servo_offset;
+    float xy = sqrt(pow(x, 2) + pow(y, 2));
+    float hip_angle = (180 - acos(x/xy) * RAD_TO_DEG) + hip_angle_offset;
+    //xy -= hip_offset;
+    float xyz = sqrt(pow(xy, 2) + pow(z, 2));
+    float flat_xyz_angle = acos(xy/xyz) * RAD_TO_DEG;
+    float thigh_angle =  acos((pow(tibia, 2)+pow(thigh, 2)-pow(xyz, 2))/(2*tibia*thigh)) * RAD_TO_DEG - flat_xyz_angle + 90;
+    float tibia_angle = acos((pow(xyz, 2)+pow(thigh, 2)-pow(tibia, 2))/(2*xyz*thigh)) * RAD_TO_DEG - tibia_offset;
+
+    char msg[90];
+    sprintf(msg, "MOVELEG:\ta: %d,\tb: %d,\tc: %d", (int)xy, (int)hip_angle, (int) xyz);
+    debug_serialWrite(msg, CRLF);
+    HAL_IWDG_Refresh(&hiwdg);
+
+    PCA_setServoAngle(leg*4, hip_angle);
+    PCA_setServoAngle(leg*4+1, thigh_angle);
+    PCA_setServoAngle(leg*4+2, tibia_angle);
 }
 
 // split received data and execute a command
@@ -247,6 +307,33 @@ void debug_executeSerial()
             int value = atoi(ptr);
 
             PCA_setServoAngle(channel, value);
+            //PCA_setPin(channel, value);
+        }
+        else
+          goto error;
+    }
+    else if(strcmp(ptr, "move") == 0)
+    {
+        ptr = strtok(NULL, "_");
+        if(strcmp(ptr, "leg") == 0)
+        {
+            ptr = strtok(NULL, "_");
+            if(ptr == NULL) goto error;
+            uint8_t leg = atoi(ptr);
+
+            ptr = strtok(NULL, "_");
+            if(ptr == NULL) goto error;
+            int x = atoi(ptr);
+
+            ptr = strtok(NULL, "_");
+            if(ptr == NULL) goto error;
+            int y = atoi(ptr);
+
+            ptr = strtok(NULL, "_");
+            if(ptr == NULL) goto error;
+            int z = atoi(ptr);
+
+            moveLeg(leg, x, y, z);
         }
         else
           goto error;
@@ -290,11 +377,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     }
 }
 
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+int __io_putchar(int ch)
+{
+    HAL_UART_Transmit(&huart1, (uint8_t*)&ch, 1, HAL_MAX_DELAY);
+    return 1;
+}
 
 /* USER CODE END 0 */
 
@@ -349,8 +440,13 @@ int main(void)
   PCA_begin();
 
   HX_begin(0);
-
-  
+  /*
+  HX_setScale(0, 1);
+  HX_tare(0, 10);
+  HX_setScale(0, 1);
+  HAL_IWDG_Refresh(&hiwdg);
+  HX_setScale(0, HX_readUnits(0, 10));
+  */
 
   /* USER CODE END 2 */
 
@@ -359,13 +455,152 @@ int main(void)
   while (1)
   {
       led_toggle(6);
-      char msg[32] = "ODCZYT: ";
-      char buff[32];
-      itoa(HX_read(0), buff, 2);
-      strcat(msg, buff);
-      debug_serialWrite(msg, 1);
       HAL_Delay(100);
       HAL_IWDG_Refresh(&hiwdg);
+      if(is_button_pressed())
+      {
+          //moveLeg(LEG_A, 129,119, 50);
+          while(1)
+          {
+              int delay = 500;
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(0, 70);
+              PCA_setServoAngle(4, 110);
+              PCA_setServoAngle(8, 70);
+              PCA_setServoAngle(12, 110);
+
+              PCA_setServoAngle(1, 120);
+              PCA_setServoAngle(5, 120);
+              PCA_setServoAngle(9, 120);
+              PCA_setServoAngle(13, 120);
+
+              PCA_setServoAngle(2, 50);
+              PCA_setServoAngle(6, 50);
+              PCA_setServoAngle(10, 50);
+              PCA_setServoAngle(14, 50); //default pos
+
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(0, 110);
+              PCA_setServoAngle(4, 110);
+              PCA_setServoAngle(8, 70);
+              PCA_setServoAngle(12, 50);
+
+              PCA_setServoAngle(1, 130);
+              PCA_setServoAngle(5, 120);
+              PCA_setServoAngle(9, 120);
+              PCA_setServoAngle(13, 130);
+
+              PCA_setServoAngle(2, 25);
+              PCA_setServoAngle(6, 50);
+              PCA_setServoAngle(10, 50);
+              PCA_setServoAngle(14, 25); //pos e
+
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+              PCA_setServoAngle(1, 160); //raise the leg
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(0, 50);
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+              PCA_setServoAngle(2, 90);
+              
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(1, 100); //pos f
+
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(0, 50);
+              PCA_setServoAngle(4, 50);
+              PCA_setServoAngle(8, 70);
+              PCA_setServoAngle(12, 100);
+
+              PCA_setServoAngle(1, 120);
+              PCA_setServoAngle(5, 120);
+              PCA_setServoAngle(9, 100);
+              PCA_setServoAngle(13, 130);
+
+              PCA_setServoAngle(2, 50);
+              PCA_setServoAngle(6, 50);
+              PCA_setServoAngle(10, 90);
+              PCA_setServoAngle(14, 25); //pos g
+
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+              PCA_setServoAngle(9, 130); //raise the leg
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(8, 120);
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+              PCA_setServoAngle(10, 50); 
+              PCA_setServoAngle(9, 130);
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(9, 130);
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);//pos h
+
+              PCA_setServoAngle(5, 130); //raise the leg
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(4, 130);
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+              PCA_setServoAngle(6, 40);
+              
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(5, 100); //pos f
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(0, 70);
+              PCA_setServoAngle(4, 100);
+              PCA_setServoAngle(8, 50);
+              PCA_setServoAngle(12, 50);
+
+              PCA_setServoAngle(1, 120);
+              PCA_setServoAngle(5, 120);
+              PCA_setServoAngle(9, 130);
+              PCA_setServoAngle(13, 120);
+
+              PCA_setServoAngle(2, 90);
+              PCA_setServoAngle(6, 25);
+              PCA_setServoAngle(10, 50);
+              PCA_setServoAngle(14, 50); //pos j
+
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+              PCA_setServoAngle(13, 130); //raise the leg
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(12, 70);
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+              PCA_setServoAngle(14, 50); 
+              PCA_setServoAngle(13, 130);
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);
+
+              PCA_setServoAngle(13, 70);
+              HAL_Delay(delay);
+              HAL_IWDG_Refresh(&hiwdg);//pos k
+              
+          }
+      }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

@@ -31,5 +31,10 @@ typedef enum
 void HX_begin(HX_nr module);
 uint32_t HX_read(HX_nr module);
 bool HX_check(HX_nr module);
+int HX_readAverage(HX_nr module, int times);
+void HX_setScale(HX_nr module, float s);
+void HX_tare(HX_nr module, int times);
+int HX_readValue(HX_nr module, int times);
+float HX_readUnits(HX_nr module, int times);
 
 #endif

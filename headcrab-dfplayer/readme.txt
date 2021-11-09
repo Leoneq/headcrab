@@ -29,7 +29,7 @@
 28 - 440hz test signal
 29 - test click sound
 
-the sounds have to be inside "mp3" folder, can be either .wav or .mp3
+the sounds have to be inside the "mp3" folder, can be either .wav or .mp3
 the sd card is fat32 filesystem.
 
 5:41pm 13th of july 2021

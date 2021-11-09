@@ -58,21 +58,21 @@
 
 const int servoMinMaxValues[16][2] = 
 {
-  {140, 410},
-  {100, 480},
-  {80, 470},
+  {115, 430},
+  {160, 510},
+  {100, 545},
   {0, 0},
-  {150, 440},
-  {100, 480},
-  {80, 470},
+  {150, 500},
+  {150, 505},
+  {100, 530},
   {0, 0},
-  {150, 450},
-  {110, 480},
-  {160, 510}, //fix
+  {180, 500},
+  {100, 505},
+  {120, 550}, 
   {0, 0},
-  {170, 470},
-  {100, 470},
-  {150, 520},
+  {130, 450},
+  {130, 485},
+  {110, 495},
   {0, 0}
 };
 
@@ -103,11 +103,13 @@ void PCA_setBit(uint8_t reg, uint8_t bit, bool val)
 	  if(val) value |= val << bit;
     else value &= ~(!val << bit);
 
+    /*
     char b[10];
     itoa(value, b, 16);
     char msg[32] = "VALUE: ";
     strcat(msg, b);
     debug_serialWrite(msg, 1);
+    */
 
     PCA_write8(reg, value);
 }
@@ -181,6 +183,10 @@ void PCA_setServoAngle(uint8_t channel, float angle)
     if(angle < 0) a = 0;
     else a = map((uint16_t)angle, 0, 180, servoMinMaxValues[channel][0], servoMinMaxValues[channel][1]);
     PCA_setPin(channel, a);
+    //HAL_Delay(1);
+    //PCA_setPin(channel, servoMinMaxValues[channel][0]);
+    //HAL_Delay(1);
+    //PCA_setPin(channel, a);
 }
 
 void PCA_begin()

@@ -43,6 +43,9 @@ static const HX_ADC HXes[] =
 
 #define CLOCK_BITS BITS_A_128
 
+long offset = 0;	// used for tare weight
+float scale = 0;	// used to return weight in grams, kg, ounces, whatever
+
 void HX_begin(HX_nr module)
 {
     while(HAL_GPIO_ReadPin(HXes[module].data_port, HXes[module].data_pin)); //wait til ready
@@ -59,13 +62,12 @@ void HX_begin(HX_nr module)
 uint32_t HX_read(HX_nr module)
 {
     uint32_t result = 0;
-    while(HAL_GPIO_ReadPin(HXes[module].data_port, HXes[module].data_pin)); //wait til ready
-
+    while(HX_check(module)); //wait til ready
     for(int x = 0; x < CLOCK_BITS; x++)
     {
-        HAL_GPIO_WritePin(HXes[module].data_port, HXes[module].data_pin, GPIO_PIN_SET);
-        if(x < 25) result |= HAL_GPIO_ReadPin(HXes[module].data_port, HXes[module].data_pin) << x;
-        HAL_GPIO_WritePin(HXes[module].data_port, HXes[module].data_pin, GPIO_PIN_RESET);
+        HAL_GPIO_WritePin(HXes[module].clk_port, HXes[module].clk_pin, GPIO_PIN_SET);
+        if(x < 24) result |= HAL_GPIO_ReadPin(HXes[module].data_port, HXes[module].data_pin) << (24 - x);
+        HAL_GPIO_WritePin(HXes[module].clk_port, HXes[module].clk_pin, GPIO_PIN_RESET);
     }
     return result;
 }
@@ -79,3 +81,42 @@ bool HX_check(HX_nr module)
         return false;
 }
 
+int HX_readAverage(HX_nr module, int times)
+{
+    float mean = 0;
+    for(int x = 0; x < times; x++)
+    {
+        mean += HX_read(module);
+    }
+    return mean / times;
+}
+
+void HX_tare(HX_nr module, int times)
+{
+    offset = HX_readAverage(module, times);
+    char msg[32] = "OFFSET: ";
+    char buf[10];
+    itoa(offset, buf, 10);
+    strcat(msg, buf);
+    debug_serialWrite(msg, 1);
+}
+
+void HX_setScale(HX_nr module, float s)
+{
+    scale = s;
+    char msg[32] = "SCALE: ";
+    char buf[10];
+    itoa(scale, buf, 10);
+    strcat(msg, buf);
+    debug_serialWrite(msg, 1);
+}
+
+int HX_readValue(HX_nr module, int times)
+{
+    return HX_readAverage(module, times) - offset;
+}
+
+float HX_readUnits(HX_nr module, int times)
+{
+    return HX_readValue(module, times) / scale;
+}
