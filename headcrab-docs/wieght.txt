@@ -1,0 +1,16 @@
+M2x6 hex countersunk: 0.17g
+MR84-2RS ball bearing: 0.4g
+M2x3x3 insert: 0.1g
+left: 2.9g //with bearings: 4g
+right: 8g
+pin 2mm: 0.3g
+pin 1mm: 0.1g
+total: 12+
+
+3v - 364g - 176 hz 10560rpm F=3.57N M=0.1785N
+6v - 500g - 324hz - 19440rpm F=4.9N M= 0.245N
+7.4v - 442hz - 26520rpm
+8v
+
+gearbox 54:1
+
