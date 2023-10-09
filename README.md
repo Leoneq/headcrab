@@ -1,7 +1,7 @@
 # Headcrab
 The Headcrab project is my take on a serious robot project, taken from the idea to the frontend.
 
-<img src="https://github.com/Leoneq/headcrab/assets/36605644/5589c758-09fa-4244-b3f6-940954410fb9" width="50%"/>
+<img src="headcrab-temporary/robot.PNG" width="50%"/>
 
 It's still under heavy development though, as
 hardware is still being designed and tested.
@@ -17,13 +17,13 @@ Why headcrab is going to be so special?
   I'm having finals soon, the scheduled resume on this project is May 2024.
   It's also going to be the subject of my bachelor's thesis (hopefully)
   
-  <img src="https://github.com/Leoneq/headcrab/assets/36605644/536a2e42-138a-41c1-a874-2c9d25999441" width="50%"/>
-  <img src="https://github.com/Leoneq/headcrab/assets/36605644/874875b6-6c44-4a2d-9713-39bc3fccdcd7"  width="50%"/>
+  <img src="headcrab-temporary/chassis.png" width="50%"/>
+  <img src="headcrab-temporary/servo.PNG"  width="50%"/>
 
 # This project wouldn't be possible to create without the generous sponsors!
-<img src="https://github.com/Leoneq/headcrab/assets/36605644/579c8da9-0952-4fd1-9ea7-814d096d3fa3" width="50%"/>
-<img src="https://github.com/Leoneq/headcrab/assets/36605644/6f4a8a9f-ce60-438a-9c67-e73782bd9c7f" width="50%"/>
-<img src="https://github.com/Leoneq/headcrab/assets/36605644/d220b494-5a39-48b0-9337-e26553e130e4" width="50%"/>
+<img src="https://i0.wp.com/palmbeach.makerfaire.com/wp-content/uploads/sites/75/2018/04/pcbway-logo.png?fit=2842%2C2008&ssl=1" width="50%"/>
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1b/Igus_logo.svg/1200px-Igus_logo.svg.png" width="50%"/>
+<img src="https://companieslogo.com/img/orig/ADI_BIG.D-cffbc3d8.png?t=1633350529" width="50%"/>
 
 # License
 There's no licence yet. Please do not use the content found within this repository, for both commercial and non-commercial usage of any kind. Ask me if you really need to
