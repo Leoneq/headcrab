@@ -16,6 +16,8 @@ Why headcrab is going to be so special?
   # THIS PROJECT IS UNDER HEAVY DEVELOPMENT!
   I'm having finals soon, the scheduled resume on this project is May 2024.
   It's also going to be the subject of my bachelor's thesis (hopefully)
+  edit xii 2025: Im so close to get back to the project aaaaa
+  (I love university)
   
   <img src="headcrab-temporary/chassis.png" width="50%"/>
   <img src="headcrab-temporary/servo.PNG"  width="50%"/>
